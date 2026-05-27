@@ -1,0 +1,658 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>宠物纪念 - 彩虹桥的梦幻之旅</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Arial', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            overflow: hidden;
+        }
+        
+        #canvas {
+            display: block;
+            width: 100vw;
+            height: 100vh;
+        }
+        
+        .info-panel {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: rgba(255, 255, 255, 0.9);
+            padding: 20px;
+            border-radius: 10px;
+            font-size: 14px;
+            color: #333;
+            max-width: 300px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+            z-index: 10;
+        }
+        
+        .info-panel h2 {
+            margin-bottom: 10px;
+            color: #667eea;
+        }
+        
+        .info-panel p {
+            margin: 5px 0;
+            line-height: 1.6;
+        }
+        
+        .controls {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            background: rgba(255, 255, 255, 0.9);
+            padding: 15px 20px;
+            border-radius: 10px;
+            text-align: center;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+            z-index: 10;
+        }
+        
+        .controls p {
+            font-size: 13px;
+            color: #666;
+            margin: 5px 0;
+        }
+        
+        .loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(255, 255, 255, 0.95);
+            padding: 30px;
+            border-radius: 15px;
+            text-align: center;
+            z-index: 100;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+        }
+        
+        .loading h1 {
+            color: #667eea;
+            margin-bottom: 20px;
+        }
+        
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="loading" id="loading">
+        <h1>加载中...</h1>
+        <div class="spinner"></div>
+        <p style="margin-top: 20px; color: #666;">正在准备彩虹桥的梦幻场景</p>
+    </div>
+    
+    <div class="info-panel">
+        <h2>🌈 彩虹桥之旅</h2>
+        <p><strong>宠物纪念主题场景</strong></p>
+        <p>观看可爱的小狐狸在彩虹桥上奔跑，前往梦幻城堡。</p>
+        <p style="margin-top: 15px; color: #999; font-size: 12px;">💡 提示：滚动鼠标轮放大/缩小视图</p>
+    </div>
+    
+    <div class="controls">
+        <p>🎮 交互提示</p>
+        <p>🖱️ 滚轮：缩放视图</p>
+        <p>🎥 相机自动环绕</p>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r152/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@r152/examples/js/loaders/GLTFLoader.js"></script>
+
+    <script>
+        // ==================== 场景初始化 ====================
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 10000);
+        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+        
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setClearColor(0x000000, 0);
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFShadowShadowMap;
+        document.body.appendChild(renderer.domElement);
+        
+        // 相机初始位置
+        camera.position.set(0, 10, 20);
+        camera.lookAt(0, 5, 0);
+        
+        // ==================== 天空背景 ====================
+        const skyGeometry = new THREE.SphereGeometry(500, 32, 32);
+        const skyCanvas = document.createElement('canvas');
+        skyCanvas.width = 512;
+        skyCanvas.height = 512;
+        const skyCtx = skyCanvas.getContext('2d');
+        
+        // 创建渐变天空
+        const gradient = skyCtx.createLinearGradient(0, 0, 0, skyCanvas.height);
+        gradient.addColorStop(0, '#e0a0ff');      // 淡紫色
+        gradient.addColorStop(0.5, '#ffb366');    // 暖橙色
+        gradient.addColorStop(1, '#fffacd');      // 暖金色
+        skyCtx.fillStyle = gradient;
+        skyCtx.fillRect(0, 0, skyCanvas.width, skyCanvas.height);
+        
+        const skyTexture = new THREE.CanvasTexture(skyCanvas);
+        const skyMaterial = new THREE.MeshBasicMaterial({ map: skyTexture });
+        const skyMesh = new THREE.Mesh(skyGeometry, skyMaterial);
+        scene.add(skyMesh);
+        
+        // ==================== 彩虹桥创建 ====================
+        function createRainbowBridge() {
+            const group = new THREE.Group();
+            
+            // 创建彩虹渐变纹理
+            const canvas = document.createElement('canvas');
+            canvas.width = 512;
+            canvas.height = 256;
+            const ctx = canvas.getContext('2d');
+            
+            // 沿长度方向绘制彩虹颜色
+            const colors = [
+                '#FF0000', // 红
+                '#FF7F00', // 橙
+                '#FFFF00', // 黄
+                '#00FF00', // 绿
+                '#0000FF', // 蓝
+                '#4B0082', // 靛
+                '#9400D3'  // 紫
+            ];
+            
+            const colorWidth = canvas.width / (colors.length - 1);
+            for (let i = 0; i < colors.length - 1; i++) {
+                const gradient = ctx.createLinearGradient(i * colorWidth, 0, (i + 1) * colorWidth, 0);
+                gradient.addColorStop(0, colors[i]);
+                gradient.addColorStop(1, colors[i + 1]);
+                ctx.fillStyle = gradient;
+                ctx.fillRect(i * colorWidth, 0, colorWidth, canvas.height);
+            }
+            
+            const rainbowTexture = new THREE.CanvasTexture(canvas);
+            rainbowTexture.magFilter = THREE.LinearFilter;
+            rainbowTexture.minFilter = THREE.LinearFilter;
+            
+            // 创建桥身主体
+            const bridgeShape = new THREE.Shape();
+            bridgeShape.moveTo(-10, 0);
+            bridgeShape.lineTo(10, 0);
+            bridgeShape.lineTo(9.5, -2);
+            bridgeShape.lineTo(-9.5, -2);
+            bridgeShape.lineTo(-10, 0);
+            
+            // 沿曲线挤压形成拱桥
+            const points = [];
+            for (let i = 0; i <= 100; i++) {
+                const t = i / 100;
+                // 贝塞尔曲线：从左下到右上的拱形
+                const x = -50 + t * 100;
+                const z = Math.sin(t * Math.PI) * 50; // 拱形高度
+                const y = t * 20; // 上升高度
+                points.push(new THREE.Vector3(x, y, z));
+            }
+            
+            const curve = new THREE.CatmullRomCurve3(points);
+            const extrudeSettings = {
+                extrudePath: curve,
+                steps: 100,
+                scaleFunction: (i, l) => 1
+            };
+            
+            const bridgeGeometry = new THREE.ExtrudeGeometry(bridgeShape, extrudeSettings);
+            const bridgeMaterial = new THREE.MeshStandardMaterial({
+                map: rainbowTexture,
+                roughness: 0.4,
+                metalness: 0.3,
+                emissive: 0x444444,
+                emissiveIntensity: 0.2
+            });
+            
+            const bridge = new THREE.Mesh(bridgeGeometry, bridgeMaterial);
+            bridge.castShadow = true;
+            bridge.receiveShadow = true;
+            group.add(bridge);
+            
+            // 添加边缘装饰（白色或金色石头）
+            const edgeGeometry = new THREE.BoxGeometry(0.8, 1, 100);
+            const edgeMaterial = new THREE.MeshStandardMaterial({
+                color: 0xE8E8D0,
+                roughness: 0.8,
+                metalness: 0.1
+            });
+            
+            const leftEdge = new THREE.Mesh(edgeGeometry, edgeMaterial);
+            leftEdge.position.set(-10, 0, 0);
+            leftEdge.castShadow = true;
+            leftEdge.receiveShadow = true;
+            group.add(leftEdge);
+            
+            const rightEdge = new THREE.Mesh(edgeGeometry, edgeMaterial);
+            rightEdge.position.set(10, 0, 0);
+            rightEdge.castShadow = true;
+            rightEdge.receiveShadow = true;
+            group.add(rightEdge);
+            
+            return group;
+        }
+        
+        const rainbowBridge = createRainbowBridge();
+        scene.add(rainbowBridge);
+        
+        // 获取桥的曲线用于宠物移动
+        const bridgeCurvePoints = [];
+        for (let i = 0; i <= 100; i++) {
+            const t = i / 100;
+            const x = -50 + t * 100;
+            const z = Math.sin(t * Math.PI) * 50;
+            const y = t * 20;
+            bridgeCurvePoints.push(new THREE.Vector3(x, y, z));
+        }
+        const bridgeCurve = new THREE.CatmullRomCurve3(bridgeCurvePoints);
+        
+        // ==================== 宠物模型加载 ====================
+        let petModel = null;
+        const loader = new THREE.GLTFLoader();
+        
+        // 模型加载失败时的后备方案
+        function createFallbackPet() {
+            const group = new THREE.Group();
+            
+            // 简单的狐狸身体形状
+            // 身体
+            const bodyGeometry = new THREE.CapsuleGeometry(1, 3);
+            const bodyMaterial = new THREE.MeshStandardMaterial({ color: 0xFF8C42 });
+            const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
+            body.castShadow = true;
+            group.add(body);
+            
+            // 头
+            const headGeometry = new THREE.SphereGeometry(0.8, 32, 32);
+            const head = new THREE.Mesh(headGeometry, bodyMaterial);
+            head.position.y = 2;
+            head.castShadow = true;
+            group.add(head);
+            
+            // 耳朵
+            const earGeometry = new THREE.ConeGeometry(0.4, 1.2, 8);
+            const ear1 = new THREE.Mesh(earGeometry, bodyMaterial);
+            ear1.position.set(-0.5, 2.7, 0);
+            ear1.castShadow = true;
+            group.add(ear1);
+            
+            const ear2 = new THREE.Mesh(earGeometry, bodyMaterial);
+            ear2.position.set(0.5, 2.7, 0);
+            ear2.castShadow = true;
+            group.add(ear2);
+            
+            // 尾巴
+            const tailGeometry = new THREE.CylinderGeometry(0.3, 0.2, 2, 8);
+            const tail = new THREE.Mesh(tailGeometry, bodyMaterial);
+            tail.position.set(0, 0, -1.8);
+            tail.rotation.z = 0.3;
+            tail.castShadow = true;
+            group.add(tail);
+            
+            return group;
+        }
+        
+        loader.load(
+            'https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/main/2.0/Fox/glTF/Fox.gltf',
+            (gltf) => {
+                petModel = gltf.scene;
+                petModel.scale.set(2, 2, 2);
+                petModel.traverse((node) => {
+                    if (node.isMesh) {
+                        node.castShadow = true;
+                        node.receiveShadow = true;
+                    }
+                });
+                scene.add(petModel);
+                
+                // 播放动画
+                if (gltf.animations && gltf.animations.length > 0) {
+                    const mixer = new THREE.AnimationMixer(petModel);
+                    const runAnimation = gltf.animations.find(clip => 
+                        clip.name.toLowerCase().includes('run') || 
+                        clip.name.toLowerCase().includes('walk')
+                    ) || gltf.animations[0];
+                    
+                    if (runAnimation) {
+                        mixer.clipAction(runAnimation).play();
+                    }
+                    
+                    // 在动画循环中更新混合器
+                    renderer.render(scene, camera); // 初始渲染
+                    
+                    function updatePet(time) {
+                        mixer.update(time);
+                    }
+                    
+                    window.petMixer = mixer;
+                }
+                
+                document.getElementById('loading').style.display = 'none';
+            },
+            undefined,
+            (error) => {
+                console.error('模型加载失败，使用后备方案', error);
+                petModel = createFallbackPet();
+                scene.add(petModel);
+                document.getElementById('loading').style.display = 'none';
+            }
+        );
+        
+        // ==================== 城堡创建 ====================
+        function createCastle() {
+            const group = new THREE.Group();
+            const castleX = 45;
+            const castleY = 25;
+            const castleZ = 45;
+            
+            // 主塔（中央最高的塔）
+            const mainTowerGeometry = new THREE.CylinderGeometry(4, 4, 15, 16);
+            const stoneMaterial = new THREE.MeshStandardMaterial({
+                color: 0x8B7355,
+                roughness: 0.9,
+                metalness: 0.1
+            });
+            const mainTower = new THREE.Mesh(mainTowerGeometry, stoneMaterial);
+            mainTower.position.set(castleX, castleY, castleZ);
+            mainTower.castShadow = true;
+            mainTower.receiveShadow = true;
+            group.add(mainTower);
+            
+            // 主塔顶部圆锥
+            const roofGeometry = new THREE.ConeGeometry(5, 6, 16);
+            const roofMaterial = new THREE.MeshStandardMaterial({
+                color: 0xFF6B9D,
+                roughness: 0.7,
+                metalness: 0.2
+            });
+            const mainRoof = new THREE.Mesh(roofGeometry, roofMaterial);
+            mainRoof.position.set(castleX, castleY + 10.5, castleZ);
+            mainRoof.castShadow = true;
+            group.add(mainRoof);
+            
+            // 副塔们
+            const towerConfigs = [
+                { x: -3, z: -3, h: 10, r: 3 },
+                { x: 3, z: -3, h: 10, r: 3 },
+                { x: -3, z: 3, h: 10, r: 3 },
+                { x: 3, z: 3, h: 10, r: 3 }
+            ];
+            
+            towerConfigs.forEach(config => {
+                const towerGeo = new THREE.CylinderGeometry(config.r, config.r, config.h, 16);
+                const tower = new THREE.Mesh(towerGeo, stoneMaterial);
+                tower.position.set(castleX + config.x, castleY - 2.5, castleZ + config.z);
+                tower.castShadow = true;
+                tower.receiveShadow = true;
+                group.add(tower);
+                
+                // 小塔顶部
+                const smallRoof = new THREE.Mesh(
+                    new THREE.ConeGeometry(config.r + 0.5, 4, 16),
+                    roofMaterial
+                );
+                smallRoof.position.set(castleX + config.x, castleY - 2.5 + config.h / 2 + 2, castleZ + config.z);
+                smallRoof.castShadow = true;
+                group.add(smallRoof);
+            });
+            
+            // 城堡墙体
+            const wallGeometry = new THREE.BoxGeometry(20, 8, 15);
+            const wall = new THREE.Mesh(wallGeometry, stoneMaterial);
+            wall.position.set(castleX, castleY - 5, castleZ);
+            wall.castShadow = true;
+            wall.receiveShadow = true;
+            group.add(wall);
+            
+            // 城堡窗户
+            for (let i = 0; i < 5; i++) {
+                const windowGeometry = new THREE.BoxGeometry(1.2, 1.2, 0.2);
+                const windowMaterial = new THREE.MeshStandardMaterial({
+                    color: 0xFFD700,
+                    emissive: 0xFFD700,
+                    emissiveIntensity: 0.5
+                });
+                const window_ = new THREE.Mesh(windowGeometry, windowMaterial);
+                window_.position.set(castleX - 8 + i * 4, castleY - 1, castleZ - 7.8);
+                window_.castShadow = true;
+                group.add(window_);
+            }
+            
+            group.position.set(0, 0, 0);
+            return group;
+        }
+        
+        const castle = createCastle();
+        scene.add(castle);
+        
+        // ==================== 花园创建 ====================
+        function createGarden() {
+            const group = new THREE.Group();
+            const gardenX = 45;
+            const gardenY = 0;
+            const gardenZ = 45;
+            
+            // 树木（大的绿色球体）
+            const treePositions = [
+                { x: -20, z: -15, s: 4 },
+                { x: 20, z: -15, s: 4 },
+                { x: -15, z: 20, s: 3.5 },
+                { x: 15, z: 20, s: 3.5 },
+                { x: 0, z: -25, s: 3 },
+                { x: -30, z: 10, s: 3 }
+            ];
+            
+            const treeMaterial = new THREE.MeshStandardMaterial({
+                color: 0x228B22,
+                roughness: 0.8
+            });
+            
+            treePositions.forEach(pos => {
+                const treeGeometry = new THREE.SphereGeometry(pos.s, 16, 16);
+                const tree = new THREE.Mesh(treeGeometry, treeMaterial);
+                tree.position.set(gardenX + pos.x, gardenY + pos.s / 2, gardenZ + pos.z);
+                tree.castShadow = true;
+                tree.receiveShadow = true;
+                group.add(tree);
+            });
+            
+            // 花朵（小彩色球体）
+            const flowerColors = [0xFF1493, 0xFF69B4, 0xFFB6C1, 0xFFFF00, 0xFF6347, 0x9370DB];
+            for (let i = 0; i < 40; i++) {
+                const flowerGeometry = new THREE.SphereGeometry(0.5, 8, 8);
+                const flowerMaterial = new THREE.MeshStandardMaterial({
+                    color: flowerColors[Math.floor(Math.random() * flowerColors.length)],
+                    emissive: flowerColors[Math.floor(Math.random() * flowerColors.length)],
+                    emissiveIntensity: 0.3
+                });
+                const flower = new THREE.Mesh(flowerGeometry, flowerMaterial);
+                flower.position.set(
+                    gardenX + (Math.random() - 0.5) * 50,
+                    gardenY + 0.5,
+                    gardenZ + (Math.random() - 0.5) * 50
+                );
+                flower.castShadow = true;
+                group.add(flower);
+            }
+            
+            return group;
+        }
+        
+        const garden = createGarden();
+        scene.add(garden);
+        
+        // ==================== 灯光系统 ====================
+        // 环境光
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+        scene.add(ambientLight);
+        
+        // 定向光（太阳光）
+        const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+        directionalLight.position.set(30, 40, 30);
+        directionalLight.castShadow = true;
+        directionalLight.shadow.mapSize.width = 2048;
+        directionalLight.shadow.mapSize.height = 2048;
+        directionalLight.shadow.camera.far = 200;
+        directionalLight.shadow.camera.left = -100;
+        directionalLight.shadow.camera.right = 100;
+        directionalLight.shadow.camera.top = 100;
+        directionalLight.shadow.camera.bottom = -100;
+        scene.add(directionalLight);
+        
+        // 彩虹桥自发光
+        const bridgeLight = new THREE.PointLight(0xFFFFFF, 1, 200);
+        bridgeLight.position.set(0, 15, 25);
+        scene.add(bridgeLight);
+        
+        // 城堡灯光
+        const castleLight = new THREE.PointLight(0xFFD700, 1.5, 150);
+        castleLight.position.set(45, 30, 45);
+        scene.add(castleLight);
+        
+        // ==================== 粒子系统 ====================
+        function createParticleSystem() {
+            const particleCount = 100;
+            const geometry = new THREE.BufferGeometry();
+            
+            const positions = [];
+            const velocities = [];
+            
+            for (let i = 0; i < particleCount; i++) {
+                positions.push(
+                    (Math.random() - 0.5) * 150,
+                    Math.random() * 100,
+                    (Math.random() - 0.5) * 150
+                );
+                velocities.push(
+                    (Math.random() - 0.5) * 0.02,
+                    -0.01 + Math.random() * 0.01,
+                    (Math.random() - 0.5) * 0.02
+                );
+            }
+            
+            geometry.setAttribute('position', new THREE.BufferAttribute(new Float32Array(positions), 3));
+            
+            const material = new THREE.PointsMaterial({
+                color: 0xFFD700,
+                size: 0.5,
+                emissive: 0xFFD700,
+                emissiveIntensity: 0.8,
+                sizeAttenuation: true
+            });
+            
+            const particles = new THREE.Points(geometry, material);
+            
+            particles.velocities = new Float32Array(velocities);
+            
+            return particles;
+        }
+        
+        const particles = createParticleSystem();
+        scene.add(particles);
+        
+        // ==================== 动画循环 ====================
+        let time = 0;
+        const clock = new THREE.Clock();
+        
+        function animate() {
+            requestAnimationFrame(animate);
+            
+            const deltaTime = clock.getDelta();
+            time += deltaTime;
+            
+            // 更新宠物位置和动画
+            if (petModel) {
+                const t = (time * 0.2) % 1; // 循环进度
+                const point = bridgeCurve.getPoint(t);
+                petModel.position.copy(point);
+                
+                // 计算方向
+                const nextPoint = bridgeCurve.getPoint((t + 0.01) % 1);
+                const direction = new THREE.Vector3().subVectors(nextPoint, point);
+                petModel.lookAt(petModel.position.clone().add(direction));
+                
+                // 添加弹跳动画
+                const bounceHeight = Math.sin(time * 10) * 0.3;
+                petModel.position.y += bounceHeight;
+                
+                // 更新宠物动画混合器
+                if (window.petMixer) {
+                    window.petMixer.update(deltaTime);
+                }
+            }
+            
+            // 更新粒子系统
+            const positions = particles.geometry.attributes.position.array;
+            for (let i = 0; i < positions.length; i += 3) {
+                positions[i] += particles.velocities[i];
+                positions[i + 1] += particles.velocities[i + 1];
+                positions[i + 2] += particles.velocities[i + 2];
+                
+                // 循环回顶部
+                if (positions[i + 1] < 0) {
+                    positions[i + 1] = 100;
+                }
+            }
+            particles.geometry.attributes.position.needsUpdate = true;
+            
+            // 相机环绕动画
+            if (petModel) {
+                const radius = 25;
+                const angle = time * 0.3;
+                camera.position.x = petModel.position.x + Math.cos(angle) * radius;
+                camera.position.y = petModel.position.y + 8;
+                camera.position.z = petModel.position.z + Math.sin(angle) * radius;
+                camera.lookAt(petModel.position.x, petModel.position.y + 2, petModel.position.z);
+            }
+            
+            renderer.render(scene, camera);
+        }
+        
+        // ==================== 鼠标滚轮缩放 ====================
+        window.addEventListener('wheel', (event) => {
+            event.preventDefault();
+            const zoomSpeed = 1.1;
+            const direction = camera.position.clone().normalize();
+            
+            if (event.deltaY > 0) {
+                camera.position.addScaledVector(direction, 1);
+            } else {
+                camera.position.addScaledVector(direction, -1);
+            }
+        }, { passive: false });
+        
+        // ==================== 窗口调整 ====================
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+        
+        // 开始动画循环
+        animate();
+    </script>
+</body>
+</html>
